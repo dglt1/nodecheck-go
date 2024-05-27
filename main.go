@@ -26,27 +26,26 @@ func clearScreen() {
 }
 
 func main() {
+	defaultURL := "https://api.mainnet-beta.solana.com"
 	urls := readURLs("nodes.txt")
-	if len(urls) < 2 {
-		log.Fatal("Not enough URLs in the file")
-	}
-
-	url1, url2 := urls[0], urls[1]
 
 	for {
 		clearScreen()
 
-		response1 := makeRequest(url1)
-		response2 := makeRequest(url2)
+		defaultResponse := makeRequest(defaultURL)
+		defaultSlot, defaultBlockHeight := parseValues(defaultResponse)
 
-		slot1, blockHeight1 := parseValues(response1)
-		slot2, blockHeight2 := parseValues(response2)
+		fmt.Printf("(%s) Slot: %d, BlockHeight: %d\n", defaultURL, defaultSlot, defaultBlockHeight)
+		fmt.Println()
 
-		slotDiff := slot1 - slot2
+		for _, url := range urls {
+			response := makeRequest(url)
+			slot, blockHeight := parseValues(response)
+			slotDiff := defaultSlot - slot
 
-		fmt.Printf("Response from %s\nSlot: %d, BlockHeight: %d\n", url1, slot1, blockHeight1)
-		fmt.Printf("Response from %s\nSlot: %d, BlockHeight: %d\n", url2, slot2, blockHeight2)
-		fmt.Printf("\n%s is %d slots behind\n", url2, slotDiff)
+			fmt.Printf("Response from %s\nSlot: %d, BlockHeight: %d\n", url, slot, blockHeight)
+			fmt.Printf("%s is %d slots behind mainnet\n\n", url, slotDiff)
+		}
 
 		time.Sleep(3 * time.Second)
 	}
