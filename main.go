@@ -40,7 +40,15 @@ func main() {
 
 		for _, url := range urls {
 			response := makeRequest(url)
+			if response == nil {
+				log.Printf("No valid response from %s, skipping.", url)
+				continue
+			}
 			slot, blockHeight := parseValues(response)
+			if slot == 0 && blockHeight == 0 {
+				log.Printf("Invalid data from %s, skipping.", url)
+				continue
+			}
 			slotDiff := defaultSlot - slot
 
 			fmt.Printf("Response from %s\nSlot: %d, BlockHeight: %d\n", url, slot, blockHeight)
@@ -71,42 +79,61 @@ func readURLs(filePath string) []string {
 
 func makeRequest(url string) []byte {
 	payload := `[{"jsonrpc":"2.0","id":1, "method":"getHealth"},{"jsonrpc":"2.0","id":2, "method":"getSlot"},{"jsonrpc":"2.0","id":3, "method":"getBlockHeight"}]`
-	resp, err := http.Post(url, "application/json", bytes.NewBufferString(payload))
+	client := &http.Client{
+		Timeout: 2 * time.Second, // Set timeout for the HTTP client
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString(payload))
 	if err != nil {
-		log.Fatalf("HTTP request failed: %s", err)
+		log.Printf("Failed to create request for %s: %s", url, err)
+		return nil
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("HTTP request to %s failed: %s", url, err)
+		return nil // Return nil to indicate a failed or timed-out request
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Non-OK HTTP status from %s: %d", url, resp.StatusCode)
+		return nil
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Failed to read response body: %s", err)
+		log.Printf("Failed to read response body from %s: %s", url, err)
+		return nil
 	}
 	return body
 }
 
 func parseValues(jsonData []byte) (int, int) {
+	if jsonData == nil {
+		return 0, 0 // Return zero values if jsonData is nil
+	}
+
 	var result []map[string]interface{}
 	if err := json.Unmarshal(jsonData, &result); err != nil {
-		log.Fatalf("JSON unmarshalling failed: %s", err)
+		log.Printf("JSON unmarshalling failed: %s", err)
+		return 0, 0 // Return zero values if unmarshalling fails
 	}
 
 	slot := 0
 	blockHeight := 0
 
-	// Check for slot
+	// Extract slot and block height safely
 	if val, ok := result[1]["result"].(float64); ok {
 		slot = int(val)
 	} else if val, ok := result[1]["result"].(int); ok {
 		slot = val
-	} else {
-		log.Fatalf("Expected numeric type for slot but got different type")
 	}
 
 	if val, ok := result[2]["result"].(float64); ok {
 		blockHeight = int(val)
 	} else if val, ok := result[2]["result"].(int); ok {
 		blockHeight = val
-	} else {
-		log.Fatalf("Expected numeric type for block height but got different type")
 	}
 
 	return slot, blockHeight
