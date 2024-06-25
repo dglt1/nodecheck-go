@@ -72,7 +72,9 @@ func logToFile(url string, slotDiff int) {
 	}
 	defer f.Close()
 
-	logEntry := fmt.Sprintf("%s is %d slots behind mainnet\n", url, slotDiff)
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+
+	logEntry := fmt.Sprintf("%s - %s is %d slots behind mainnet\n", timestamp, url, slotDiff)
 	if _, err := f.WriteString(logEntry); err != nil {
 		log.Printf("Failed to write to log file: %s", err)
 	}
