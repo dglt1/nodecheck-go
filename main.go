@@ -53,9 +53,28 @@ func main() {
 
 			fmt.Printf("Response from %s\nSlot: %d, BlockHeight: %d\n", url, slot, blockHeight)
 			fmt.Printf("%s is %d slots behind mainnet\n\n", url, slotDiff)
+
+			// Append to behind.log if slotDiff is more than 4
+			if slotDiff > 4 {
+				logToFile(url, slotDiff)
+			}
 		}
 
 		time.Sleep(3 * time.Second)
+	}
+}
+
+func logToFile(url string, slotDiff int) {
+	f, err := os.OpenFile("behind.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("Failed to open log file: %s", err)
+		return
+	}
+	defer f.Close()
+
+	logEntry := fmt.Sprintf("%s is %d slots behind mainnet\n", url, slotDiff)
+	if _, err := f.WriteString(logEntry); err != nil {
+		log.Printf("Failed to write to log file: %s", err)
 	}
 }
 
